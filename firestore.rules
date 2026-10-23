@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    match /profiles/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'member'
+        && request.resource.data.keys().hasOnly(['uid', 'firstName', 'lastName', 'fullName', 'email', 'role', 'createdAt']);
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'fullName']);
+      allow delete: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if isAdmin() || resource.data.status == 'published';
+      allow write: if false;
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+  }
+}

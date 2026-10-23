@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError, onCall } from 'firebase-functions/v2/https';
 
 initializeApp();
@@ -18,13 +18,25 @@ function asText(value: unknown, max = 180) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+function eventExpiryMs(event: FirebaseFirestore.DocumentData) {
+  if (typeof event.endsAt?.toMillis === 'function') return event.endsAt.toMillis();
+  if (typeof event.date === 'string') {
+    const [year, month, day] = event.date.split('-').map(Number);
+    if (year && month && day) return Date.UTC(year, month - 1, day + 1, 4);
+  }
+  return 0;
+}
+
 export const publishEvent = onCall({ region: REGION, timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
   requireAdmin(request);
   const title = asText(request.data?.title, 72);
   const date = asText(request.data?.date, 10);
   const time = asText(request.data?.time, 32);
+  const endIso = asText(request.data?.endsAt, 40);
   const venue = asText(request.data?.venue, 180);
-  if (!title || !date || !time || !venue) throw new HttpsError('invalid-argument', 'Titolo, data, orario e luogo sono obbligatori.');
+  const endDate = new Date(endIso);
+  if (!title || !date || !time || !venue || !endIso || Number.isNaN(endDate.getTime())) throw new HttpsError('invalid-argument', 'Titolo, data, orario, fine evento e luogo sono obbligatori.');
+  if (endDate.getTime() <= Date.now()) throw new HttpsError('invalid-argument', 'La fine dell’evento deve essere nel futuro.');
   const posterUrl = asText(request.data?.posterUrl, 1500);
   if (posterUrl && !posterUrl.startsWith('https://firebasestorage.googleapis.com/')) {
     throw new HttpsError('invalid-argument', 'La locandina deve provenire da Firebase Storage.');
@@ -40,6 +52,7 @@ export const publishEvent = onCall({ region: REGION, timeoutSeconds: 540, memory
     dateLabel,
     time,
     timeLabel: time,
+    endsAt: Timestamp.fromDate(endDate),
     venue,
     posterUrl,
     accent: 'coral',
@@ -100,12 +113,20 @@ export const redeemTicket = onCall({ region: REGION }, async (request) => {
     const ticketSnap = await transaction.get(ticketRef);
     if (!ticketSnap.exists) throw new HttpsError('not-found', 'Biglietto non riconosciuto.');
     const ticket = ticketSnap.data()!;
+    if (ticket.status === 'expired') throw new HttpsError('failed-precondition', 'Evento terminato: il biglietto è scaduto.');
     if (ticket.status !== 'issued') throw new HttpsError('failed-precondition', 'Biglietto già utilizzato.');
     const eventRef = db.collection('events').doc(ticket.eventId);
     const eventSnap = await transaction.get(eventRef);
     if (!eventSnap.exists || eventSnap.data()?.status !== 'published') throw new HttpsError('failed-precondition', 'Evento non attivo.');
+    const event = eventSnap.data()!;
+    const expiry = eventExpiryMs(event);
+    if (expiry <= Date.now()) {
+      transaction.update(ticketRef, { status: 'expired', expiredAt: FieldValue.serverTimestamp() });
+      return { expired: true, eventTitle: '', memberName: '' };
+    }
     transaction.update(ticketRef, { status: 'used', checkedInAt: FieldValue.serverTimestamp(), checkedInBy: adminUid });
-    return { eventTitle: eventSnap.data()?.title || ticket.eventTitle || 'Evento BASE', memberName: ticket.memberName || '' };
+    return { expired: false, eventTitle: event.title || ticket.eventTitle || 'Evento BASE', memberName: ticket.memberName || '' };
   });
-  return ticketInfo;
+  if (ticketInfo.expired) throw new HttpsError('failed-precondition', 'Evento terminato: il biglietto è scaduto.');
+  return { eventTitle: ticketInfo.eventTitle, memberName: ticketInfo.memberName };
 });

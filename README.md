@@ -48,7 +48,8 @@ Lo script usa la password fornita al momento dell’esecuzione e assegna `admin:
 ## Flusso ticket
 
 - La registrazione crea un profilo `member` legato all’UID Firebase.
-- `publishEvent` è una Cloud Function protetta da custom claim admin. Pubblica l’evento e genera un ticket con codice casuale per ogni membro. Il ticket è associato a coppia evento/membro, così un retry non crea doppioni.
+- `publishEvent` è una Cloud Function protetta dal ruolo admin (custom claim oppure email admin configurata). Pubblica l’evento e genera un ticket con codice casuale per ogni membro. Il ticket è associato a coppia evento/membro, così un retry non crea doppioni.
+- L’admin imposta data e ora di fine: nel profilo compare il QR del prossimo evento non scaduto e scompare automaticamente all’orario di fine. Il ticket scaduto viene rifiutato anche dallo scanner; il successivo evento pubblicato genera un nuovo QR per ogni membro.
 - Il QR personale del membro contiene solo il codice casuale del ticket; il documento è leggibile solo dal proprietario e dall’admin.
 - `redeemTicket` verifica codice, evento e stato dentro una transazione Firestore. Il primo scan porta il ticket da `issued` a `used`; scansioni successive vengono rifiutate.
 - Le regole Firestore negano scritture client a eventi e ticket. La generazione e la convalida avvengono lato server.

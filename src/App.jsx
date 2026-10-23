@@ -1,8 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, CalendarDays,
-  Clock3, Eye, EyeOff, Instagram, LockKeyhole, LogOut, Mail, MapPin, Menu,
-  QrCode, ShieldCheck, Ticket, Users, X,
+  ArrowLeft, ArrowRight, BadgeCheck, Eye, EyeOff, LockKeyhole, LogOut, Mail, MapPin, QrCode, ShieldCheck, Ticket, Users, X,
 } from 'lucide-react';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
@@ -11,8 +9,7 @@ import { auth, db, isAdminUser } from './firebase';
 import { ADMIN_PATH, decorateEvent, isEventLive, randomCode, ticketPayload, ticketShortCode, toMs, useNow, usePoster } from './lib';
 
 const AdminArea = lazy(() => import('./Admin.jsx'));
-
-const sampleEvent = { id: 'sample', title: 'THE FIRST AT BASE', subtitle: 'Una notte. Una nuova base.', dateLabel: 'PROSSIMAMENTE', timeLabel: '23:00 — LATE', venue: 'BASE Basement · Cava de’ Tirreni', accent: 'coral', description: 'La prima notte è quella che non si dimentica. Ci vediamo sotto.' };
+const Landing = lazy(() => import('./Landing.jsx'));
 
 function resolveView() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -84,7 +81,7 @@ function AuthModal({ mode, setMode, onClose, onDone }) {
       setError(authMessages[err.code] || 'Non è stato possibile completare l’operazione.');
     } finally { setBusy(false); }
   };
-  return <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+  return <div className="modal-scrim" data-lenis-prevent onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <button className="icon-button modal-close" onClick={onClose} aria-label="Chiudi"><X size={20} /></button>
       <div className="eyebrow"><span className="eyebrow-line" /> BASE MEMBERSHIP</div>
@@ -116,58 +113,6 @@ export function Poster({ event, className = '', index = 1, total = 1 }) {
     <div className="poster-content"><span className="poster-kicker">{event?.subtitle || 'WHAT IS BASE?'}</span><h3>{event?.title || 'LA NOTTE PRENDE FORMA'}</h3><span className="poster-bottom">{event?.venue || 'CAVA DE’ TIRRENI'} <b>→</b></span></div>
     <div className="poster-number">{String(index).padStart(2, '0')} / {String(total).padStart(2, '0')}</div>
   </article>;
-}
-
-function Landing({ onJoin, onLogin, events }) {
-  const event = events[0] || sampleEvent;
-  const others = events.slice(1);
-  const [menuOpen, setMenuOpen] = useState(false);
-  return <main className="landing">
-    <header className="site-nav">
-      <Brand onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-      <nav className={menuOpen ? 'nav-links nav-open' : 'nav-links'}>
-        <a href="#manifesto" onClick={() => setMenuOpen(false)}>IL MANIFESTO</a>
-        <a href="#eventi" onClick={() => setMenuOpen(false)}>EVENTI</a>
-        <button onClick={() => { setMenuOpen(false); onLogin(); }}>AREA MEMBRI <ArrowUpRight size={13} /></button>
-      </nav>
-      <Button variant="small" onClick={onJoin}>ENTRA NEL CLUB <ArrowRight size={15} /></Button>
-      <button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Apri il menu">{menuOpen ? <X /> : <Menu />}</button>
-    </header>
-    <section className="hero">
-      <div className="hero-grid" />
-      <div className="hero-copy">
-        <div className="eyebrow hero-eyebrow"><span className="live-pulse" /> CAVA DE’ TIRRENI · DAL SOTTOSUOLO</div>
-        <h1>LA NOTTE<br />HA UNA <span className="outline-word">BASE</span><span className="hero-period">.</span></h1>
-        <div className="hero-lower"><p>Non è solo un posto.<br />È il punto da cui <em>tutto parte.</em></p><Button onClick={onJoin}>DIVENTA MEMBRO <ArrowRight size={18} /></Button></div>
-        <a className="scroll-cue" href="#manifesto"><span>SCENDI</span><ArrowDown size={15} /></a>
-      </div>
-      <div className="hero-art" aria-label="Locandina del prossimo evento">
-        <div className="hero-ambient" />
-        <div className="hero-orbit orbit-one" /><div className="hero-orbit orbit-two" />
-        <div className="hero-stamp">BUILT<br />BELOW<br /><span>THE NOISE</span></div>
-        <Poster event={event} className="hero-poster" total={Math.max(events.length, 1)} />
-        <a className="event-float-card" href="#eventi"><span className="live-pulse" /><div><small>PROSSIMO EVENTO</small><strong>{event.title}</strong></div><ArrowUpRight size={16} /></a>
-        <div className="hero-index mono">40°42' N<br />14°42' E</div>
-      </div>
-      <div className="hero-bottomline"><span>INDIPENDENTE. ISTINTIVO. BASE.</span><span>SCORRI PER ESPLORARE <ArrowDown size={13} /></span><span>01 — 03</span></div>
-    </section>
-    <section className="manifesto section-pad" id="manifesto">
-      <div className="section-meta"><span className="eyebrow"><span className="eyebrow-line" /> IL MANIFESTO</span><span className="mono">( 01 — 03 )</span></div>
-      <div className="manifesto-main"><h2>UN LUOGO<br />DA <em>SENTIRE.</em></h2><div className="manifesto-right"><div className="manifesto-mark">B<span>.</span></div><p>Metallo, bassi e persone vere. BASE nasce dove finisce il rumore di fondo: uno spazio da abitare, una community da riconoscere, notti da portarsi dietro.</p><a className="text-link" href="#eventi">SCOPRI IL PROSSIMO EVENTO <ArrowRight size={16} /></a></div></div>
-      <div className="manifesto-image"><div className="manifesto-arch"><span>BASE<br /><small>BY EVENING</small></span></div><span className="image-caption mono">UNSPOKEN. UNFILTERED. UNMISTAKABLE.</span><span className="image-crosshair">+</span></div>
-    </section>
-    <section className="events-section section-pad" id="eventi">
-      <div className="section-meta"><span className="eyebrow"><span className="eyebrow-line" /> CI VEDIAMO SOTTO</span><span className="mono">( 02 — 03 )</span></div>
-      <div className="events-heading"><h2>LA PROSSIMA<br /><em>NOTTE.</em></h2><p>Il tuo posto ti aspetta.<br />Il QR lo trovi nel profilo.</p></div>
-      <div className="event-feature"><Poster event={event} className="event-poster" total={Math.max(events.length, 1)} /><div className="event-details"><span className="eyebrow">{event.dateLabel}</span><h3>{event.title}</h3><p>{event.description || 'Una notte. Una nuova base. Il tuo posto ti aspetta.'}</p><div className="event-meta"><span><CalendarDays size={16} /> {event.dateLabel}</span><span><Clock3 size={16} /> {event.timeLabel}</span><span><MapPin size={16} /> {event.venue || 'Cava de’ Tirreni'}</span></div><Button onClick={onJoin}>PRENDI IL TUO POSTO <ArrowRight size={17} /></Button><span className="event-availability"><span className="live-pulse" /> ACCESSO RISERVATO AI MEMBRI</span></div></div>
-      {others.length > 0 && <div className="more-events">
-        <div className="more-events-head"><span className="eyebrow"><span className="eyebrow-line" /> IN ARRIVO</span><span className="mono">{String(others.length).padStart(2, '0')} NOTTI</span></div>
-        <div className="more-events-grid">{others.map((item, i) => <article className="more-event" key={item.id}><Poster event={item} className="more-event-poster" index={i + 2} total={events.length} /><div><span className="mono">{item.dateLabel} · {item.timeLabel}</span><h4>{item.title}</h4><p>{item.venue}</p></div></article>)}</div>
-      </div>}
-    </section>
-    <section className="join-strip"><div className="join-strip-inner"><span className="eyebrow">LA COMMUNITY TI ASPETTA</span><h2>FATTI TROVARE<br /><em>DENTRO.</em></h2><Button variant="light" onClick={onJoin}>DIVENTA MEMBRO <ArrowRight size={17} /></Button><span className="strip-star">✳</span></div></section>
-    <footer className="site-footer"><Brand onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} /><span>UN POSTO PER SENTIRSI ALTROVE.</span><a href="https://instagram.com/base.basement/" target="_blank" rel="noreferrer"><Instagram size={17} /> @BASE.BASEMENT</a><small>© BASE BASEMENT 2026</small></footer>
-  </main>;
 }
 
 function TicketCard({ event, ticket, index, total }) {
@@ -223,6 +168,7 @@ export default function App() {
   const [tickets, setTickets] = useState([]);
   const [ticketsReady, setTicketsReady] = useState(false);
   const [events, setEvents] = useState([]);
+  const [eventsReady, setEventsReady] = useState(false);
   const [authMode, setAuthMode] = useState('signup');
   const [authOpen, setAuthOpen] = useState(false);
   const [firebaseIssue, setFirebaseIssue] = useState('');
@@ -236,8 +182,8 @@ export default function App() {
 
   // Eventi pubblicati: alimentano landing e profilo, in tempo reale.
   useEffect(() => onSnapshot(query(collection(db, 'events'), where('status', '==', 'published')),
-    (snapshot) => { setEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))); setFirebaseIssue(''); },
-    (error) => setFirebaseIssue(error.message)), []);
+    (snapshot) => { setEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))); setEventsReady(true); setFirebaseIssue(''); },
+    (error) => { setEventsReady(true); setFirebaseIssue(error.message); }), []);
 
   useEffect(() => {
     setProfile(null); setProfileState('loading');
@@ -295,7 +241,7 @@ export default function App() {
     {!authReady && view !== 'home' ? loadingScreen : null}
     {authReady && showProfile ? <MemberArea user={user} profile={profile} profileState={profileState} liveEvents={liveEvents} tickets={tickets} go={go} onLogout={logout} /> : null}
     {authReady && showAdmin ? <Suspense fallback={loadingScreen}><AdminArea user={user} go={go} onLogout={logout} /></Suspense> : null}
-    {(view === 'home' || (authReady && !showProfile && !showAdmin)) && <Landing events={liveEvents} onJoin={() => openAuth('signup')} onLogin={() => openAuth('login')} />}
+    {(view === 'home' || (authReady && !showProfile && !showAdmin)) && <Suspense fallback={loadingScreen}><Landing events={liveEvents} ready={eventsReady} user={user && !admin ? user : null} onJoin={() => openAuth('signup')} onLogin={() => openAuth('login')} onProfile={() => go(admin ? 'admin' : 'profile')} /></Suspense>}
     {firebaseIssue && !authOpen && <div className="firebase-status" role="status"><span className="live-pulse" /> CONNESSIONE AL DATABASE NON RIUSCITA <button onClick={() => setFirebaseIssue('')} aria-label="Chiudi"><X size={13} /></button></div>}
     {authOpen && <AuthModal mode={authMode} setMode={setAuthMode} onClose={() => { setAuthOpen(false); if (view !== 'home' && !user) go('home'); }} onDone={onAuthDone} />}
   </>;

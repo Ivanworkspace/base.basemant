@@ -1,18 +1,18 @@
 :root {
-  font-family: 'Space Grotesk', sans-serif;
-  color: #f1f0ec;
-  background: #10100f;
+  font-family: Archivo, 'Helvetica Neue', sans-serif;
+  color: #ecdfcf;
+  background: #0b0807;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #10100f;
+  --bg: #0b0807;
   --panel: #171715;
-  --paper: #eeece6;
+  --paper: #ecdfcf;
   --ink: #11110f;
-  --muted: #898883;
+  --muted: #9d8c7e;
   --line: rgba(239, 237, 230, .13);
-  --red: #ff4d3e;
-  --rust: #a74a29;
-  --mono: 'DM Mono', monospace;
+  --red: #ff4a36;
+  --rust: #7a3b1e;
+  --mono: Archivo, 'Helvetica Neue', sans-serif;
   --pad: clamp(22px, 6.25vw, 96px);
 }
 
@@ -592,7 +592,7 @@ a { color: inherit; text-decoration: none; }
 .adm-search { flex: 1 1 260px; max-width: 420px; display: flex; align-items: center; gap: 10px; border: 1px solid #d6d4cc; background: #f8f7f3; padding: 0 13px; color: #85837a; }
 .adm-search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 13px 0; outline: 0; color: #282723; }
 .adm-select { display: grid; gap: 7px; color: #79776f; font: 8px var(--mono); letter-spacing: .13em; flex: 1 1 260px; max-width: 420px; }
-.adm-select select, .event-form select { width: 100%; border: 1px solid #d6d4cc; background: #f8f7f3; color: #282723; padding: 13px; border-radius: 0; font: 13px 'Space Grotesk', sans-serif; }
+.adm-select select, .event-form select { width: 100%; border: 1px solid #d6d4cc; background: #f8f7f3; color: #282723; padding: 13px; border-radius: 0; font: 13px Archivo, sans-serif; }
 .adm-counter { display: inline-flex; align-items: center; gap: 8px; font: 10px var(--mono); letter-spacing: .08em; color: #4c7c59; border: 1px solid #c9d8cc; background: #eef3ee; padding: 11px 14px; }
 
 /* Tabelle */
@@ -712,3 +712,31 @@ a { color: inherit; text-decoration: none; }
 .adm-overlay-next { margin-top: 14px; font: 9px var(--mono); letter-spacing: .14em; opacity: .85; border: 1px solid rgba(255,255,255,.5); padding: 9px 12px; }
 .adm-overlay-bar { position: absolute; left: 0; bottom: 0; height: 5px; width: 100%; background: rgba(255,255,255,.75); transform-origin: left; animation: overlay-countdown linear forwards; }
 @keyframes overlay-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ───── Tema BASE (dal mockup): Archivo espanso, corten, ember, pulsanti a pillola ───── */
+.brand-cube { background: linear-gradient(135deg, #2a140b, #7a3b1e 55%, #c46c2c); border-color: rgba(236,223,207,.35); }
+.brand-word { font-weight: 900; font-stretch: 125%; letter-spacing: -.02em; font-size: 18px; }
+.brand-word small { font-stretch: 100%; font-weight: 600; }
+.button { border-radius: 999px; font: 800 12px/1 Archivo, sans-serif; font-stretch: 112%; letter-spacing: .04em; padding: 17px 26px; }
+.button:hover { transform: translateY(-2px); background: var(--paper); border-color: var(--paper); color: #0b0807; }
+.button-small { padding: 12px 18px; font-size: 11px; }
+.eyebrow { font-weight: 700; letter-spacing: .1em; }
+
+.modal-scrim { background: rgba(11, 8, 7, .78); backdrop-filter: blur(10px); }
+.auth-modal { background: #130d0b; border-color: rgba(236,223,207,.14); box-shadow: 0 40px 120px #000c; }
+.auth-modal h2 { font-weight: 900; font-stretch: 125%; letter-spacing: -.045em; font-size: 50px; }
+.auth-modal h2 em, .member-greeting h1 em, .empty-ticket h2 em, .admin-welcome h2 em { color: var(--red); -webkit-text-stroke: 0; }
+.auth-form input { border-radius: 0; background: rgba(236,223,207,.04); }
+.auth-submit { width: 100%; }
+
+.dashboard-shell { background: #0b0807; }
+.dash-header { background: rgba(11,8,7,.9); }
+.dash-sidebar { background: #0f0a09; }
+.member-greeting h1 { font-weight: 900; font-stretch: 125%; letter-spacing: -.045em; line-height: .86; }
+.ticket-heading { font-weight: 700; }
+.ticket-card h2 { font-weight: 900; font-stretch: 118%; letter-spacing: -.035em; }
+.empty-ticket { background: #130d0b; }
+.empty-ticket h2 { font-weight: 900; font-stretch: 118%; letter-spacing: -.035em; }
+.ticket-status, .ticket-perforation, .ticket-tag { font-weight: 700; }
+.admin-topbar h1 { font-weight: 900; font-stretch: 118%; letter-spacing: -.04em; }
+.scan-result h3, .adm-drawer h2 { font-stretch: 118%; font-weight: 900; }

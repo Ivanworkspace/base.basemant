@@ -127,14 +127,14 @@ function Reports({ profiles, events, tickets, now, onNewEvent }) {
 
 /* ───────────────────────── EVENTI ───────────────────────── */
 
-const emptyForm = { title: '', subtitle: '', description: '', venue: 'BASE Basement · Cava de’ Tirreni', date: '', time: '23:00', endDate: '', endTime: '05:00', accent: 'rust', publish: true };
+const emptyForm = { title: '', subtitle: '', description: '', lineup: '', venue: 'Via Sbarri, 81059 Caianello (CE)', date: '', time: '23:00', endDate: '', endTime: '05:00', accent: 'rust', publish: true };
 
 function EventForm({ event, onClose }) {
   const existingPoster = usePoster(event);
   const [form, setForm] = useState(() => {
     if (!event) return emptyForm;
     const start = toInputParts(event.startAt); const end = toInputParts(event.endAt);
-    return { title: event.title || '', subtitle: event.subtitle || '', description: event.description || '', venue: event.venue || '', date: start.date, time: start.time, endDate: end.date, endTime: end.time, accent: event.accent || 'rust', publish: event.status === 'published' };
+    return { title: event.title || '', subtitle: event.subtitle || '', description: event.description || '', lineup: event.lineup || '', venue: event.venue || '', date: start.date, time: start.time, endDate: end.date, endTime: end.time, accent: event.accent || 'rust', publish: event.status === 'published' };
   });
   const [poster, setPoster] = useState(null); // null = invariata, '' = rimossa, dataUrl = nuova
   const [busy, setBusy] = useState(false);
@@ -161,7 +161,7 @@ function EventForm({ event, onClose }) {
       const hasPoster = poster === null ? Boolean(event?.hasPoster) : Boolean(poster);
       const keepClosed = event?.status === 'closed';
       const data = {
-        title: form.title.trim(), subtitle: form.subtitle.trim(), description: form.description.trim(), venue: form.venue.trim(), accent: form.accent,
+        title: form.title.trim(), subtitle: form.subtitle.trim(), description: form.description.trim(), lineup: form.lineup.split('\n').map((l) => l.trim()).filter(Boolean).join('\n'), venue: form.venue.trim(), accent: form.accent,
         startAt: Timestamp.fromDate(startAt), endAt: Timestamp.fromDate(endAt),
         status: keepClosed ? 'closed' : form.publish ? 'published' : 'draft',
         hasPoster, posterVersion, updatedAt: serverTimestamp(),
@@ -184,10 +184,11 @@ function EventForm({ event, onClose }) {
         <label>TITOLO EVENTO<input required maxLength={72} value={form.title} onChange={set('title')} placeholder="es. THE FIRST AT BASE" /></label>
         <label>SOTTOTITOLO<input maxLength={90} value={form.subtitle} onChange={set('subtitle')} placeholder="Una notte. Una nuova base." /></label>
         <label>DESCRIZIONE<textarea rows="4" maxLength={600} value={form.description} onChange={set('description')} placeholder="Racconta la notte…" /></label>
+        <label>LINE UP · UN ARTISTA PER RIGA<textarea rows="3" maxLength={400} value={form.lineup} onChange={set('lineup')} placeholder={'Callmeflower\nJoshua\nDEGIC vs GIUSS'} /></label>
         <div className="form-two"><label>DATA INIZIO<input required type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value, endDate: form.endDate && form.endDate > e.target.value ? form.endDate : nextCalendarDay(e.target.value) })} /></label><label>ORA INIZIO<input required type="time" value={form.time} onChange={set('time')} /></label></div>
         <div className="form-two"><label>DATA FINE<input required type="date" value={form.endDate} onChange={set('endDate')} /></label><label>ORA FINE<input required type="time" value={form.endTime} onChange={set('endTime')} /></label></div>
         <small className="form-footnote">All’orario di fine i QR di questo evento smettono di esistere: spariscono dai profili e lo scanner li rifiuta.</small>
-        <label>LUOGO<input required maxLength={90} value={form.venue} onChange={set('venue')} /></label>
+        <label>LUOGO · INDIRIZZO<input required maxLength={90} value={form.venue} onChange={set('venue')} placeholder="Via Sbarri, 81059 Caianello (CE)" /></label>
         <div className="form-two">
           <label>COLORE LOCANDINA<select value={form.accent} onChange={set('accent')}><option value="rust">Ruggine</option><option value="coral">Corallo</option></select></label>
           <label className="adm-check"><input type="checkbox" checked={form.publish} disabled={event?.status === 'closed'} onChange={set('publish')} /> {event?.status === 'closed' ? 'Evento chiuso' : 'Pubblica subito'}</label>
@@ -276,7 +277,7 @@ function MemberDetail({ person, tickets, eventsById, now, onClose }) {
   const regenerate = (t) => window.confirm('Rigenerare il QR? Quello attuale smette subito di funzionare e il membro ne riceverà uno nuovo appena apre il profilo.')
     && act(() => commitInChunks([doc(db, 'tickets', t.id)], (b, ref) => b.delete(ref)));
 
-  return <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+  return <div className="modal-scrim" data-lenis-prevent onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <section className="adm-drawer" role="dialog" aria-modal="true">
       <button className="icon-button modal-close" onClick={onClose} aria-label="Chiudi"><X size={20} /></button>
       <span className="eyebrow"><span className="eyebrow-line" /> SCHEDA MEMBRO</span>

@@ -1,11 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 // La configurazione web Firebase è pubblica: la protezione dei dati è affidata
-// alle regole Firestore/Storage e ai custom claims, mai a questo oggetto.
+// alle regole Firestore (firestore.rules), mai a questo oggetto.
 const firebaseConfig = {
   apiKey: 'AIzaSyAwTdJT2Fbm_KpGHP7B8SGCrgA4q2FChY8',
   authDomain: 'codebasemant.firebaseapp.com',
@@ -18,5 +16,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const functions = getFunctions(app, 'europe-west1');
+
+// `npm run dev:emu` usa gli emulatori locali invece del progetto reale.
+if (import.meta.env.VITE_USE_EMULATORS === 'true') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+}
+
+// Deve coincidere con l'email in firestore.rules → isAdmin().
+export const ADMIN_EMAIL = 'base@admin.com';
+export const isAdminUser = (user) => user?.email?.toLowerCase() === ADMIN_EMAIL;

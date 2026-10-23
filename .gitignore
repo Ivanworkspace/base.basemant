@@ -7,3 +7,5 @@ functions/node_modules
 functions/lib
 functions/.env*
 .firebase
+.claude/
+*-debug.log

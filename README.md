@@ -1,57 +1,43 @@
 # BASE Basement Club
 
-Web app responsive per BASE Basement: landing page, membership con Firebase Authentication, profilo e ticket QR personali, back office admin, gestione locandine/eventi e scanner di ingresso. Lo stile riprende l’identità industriale della reference con grafica CSS, animazioni 3D e layout mobile.
+Landing page + membership con QR d'ingresso per evento. React + Vite, Firebase Authentication (email/password) e Firestore. **Niente Cloud Functions né Storage**: funziona sul piano gratuito Spark. Tutta la sicurezza è in `firestore.rules`.
 
-Usa Node.js 22 o superiore per frontend e funzioni.
+## Come funziona
 
-## Avvio locale
+- **Landing (`/`)**: mostra gli eventi pubblicati e non ancora finiti, con la locandina caricata dall'admin. Si aggiorna in tempo reale.
+- **Registrazione**: nome, cognome, email, password → profilo in `profiles/{uid}`.
+- **Profilo (`/profilo`)**: per ogni evento attivo il membro riceve un QR unico (`tickets/{eventId}_{uid}`, codice casuale di 24 caratteri). All'orario di fine (o quando l'admin chiude l'evento) il QR sparisce e lo scanner lo rifiuta.
+- **Admin (`/control-room`, rotta non linkata)**: accesso solo con `base@admin.com`.
+  - **Report**: membri, nuovi iscritti per mese, QR generati, ingressi, presenza per evento, ingressi per ora, membri più presenti.
+  - **Eventi**: crea/modifica/nascondi/chiudi/elimina, locandina compressa e salvata in `posters/{eventId}`.
+  - **Membri**: ricerca, scheda con i QR, sospendi/riattiva, elimina profilo, annulla convalida, rigenera QR, export CSV.
+  - **Validatore**: scanner con fotocamera (o codice a 8 caratteri sotto il QR). Esiti: valido / già scansionato / scaduto / non valido, con suono e vibrazione.
+
+## Sviluppo
 
 ```sh
 npm install
-npm run dev
+npm run dev          # contro il progetto Firebase reale
 ```
 
-La configurazione web Firebase fornita è già collegata in `src/firebase.js`. In Firebase Console abilita **Authentication → Email/Password**, crea Firestore e abilita Storage. Distribuisci regole e funzioni:
+Test in locale senza toccare i dati reali (serve Java):
 
 ```sh
-npm --prefix functions install
+npm run emulators              # in un terminale
+./scripts/seed-emulator.sh     # crea base@admin.com nell'emulatore (password: emulatore-admin)
+npm run dev:emu                # in un altro terminale
+```
+
+## Firebase
+
+Progetto: `codebasemant`. In console devono essere attivi **Authentication → Email/Password** e **Firestore**. Dopo ogni modifica alle regole:
+
+```sh
 npm run deploy:rules
-npm run deploy:functions
 ```
 
-## Deploy frontend su Vercel
+L'account `base@admin.com` deve esistere in Authentication (le regole riconoscono l'admin dall'email).
 
-Importa il repository GitHub in Vercel lasciando la root directory alla radice del repository. La configurazione in `vercel.json` imposta Vite, `npm run build`, la cartella `dist` e il fallback della SPA. Non servono variabili Vercel per la configurazione web Firebase già inclusa.
+## Deploy su Vercel
 
-Vercel pubblica solo il frontend. Authentication, Firestore, Storage e le funzioni `publishEvent`/`redeemTicket` restano su Firebase: abilita i servizi, distribuisci `firestore.rules`, `storage.rules` e le Cloud Functions come sopra, poi aggiungi il dominio Vercel (per esempio `nome-progetto.vercel.app`) tra gli **Authorized domains** di Firebase Authentication. Le Cloud Functions sono nella regione `europe-west1` e richiedono il piano Firebase Blaze per il deployment.
-
-Per pubblicare la web app su Firebase Hosting in alternativa a Vercel:
-
-```sh
-npm run build
-npx firebase-tools deploy --only hosting
-```
-
-## Account admin iniziale
-
-L’accesso al pannello è sulla rotta non linkata `/admin` (per esempio `https://tuo-dominio.vercel.app/admin`). Accedi con l’account Firebase `base@admin.com`: il client, le Cloud Functions e le regole riportate in `firestore.rules` e `storage.rules` riconoscono questa email oppure il custom claim `admin: true`. La password non è salvata nel frontend o nei file del progetto. Per assegnare anche il custom claim all’account già creato, genera una chiave di servizio Firebase per il progetto `codebasemant`, conservala fuori dal repository, poi avvia lo script da `functions/`:
-
-```sh
-GOOGLE_APPLICATION_CREDENTIALS="/percorso/privato/service-account.json" \
-ADMIN_EMAIL="base@admin.com" \
-ADMIN_PASSWORD="inserisci-la-password-admin" \
-node scripts/set-admin.mjs
-```
-
-Lo script usa la password fornita al momento dell’esecuzione e assegna `admin: true`. Dopo l’operazione, fai logout/login: Firebase aggiorna il ruolo nel token al nuovo accesso. Non committare la chiave di servizio o un file `.env` con password.
-
-## Flusso ticket
-
-- La registrazione crea un profilo `member` legato all’UID Firebase.
-- `publishEvent` è una Cloud Function protetta dal ruolo admin (custom claim oppure email admin configurata). Pubblica l’evento e genera un ticket con codice casuale per ogni membro. Il ticket è associato a coppia evento/membro, così un retry non crea doppioni.
-- L’admin imposta data e ora di fine: nel profilo compare il QR del prossimo evento non scaduto e scompare automaticamente all’orario di fine. Il ticket scaduto viene rifiutato anche dallo scanner; il successivo evento pubblicato genera un nuovo QR per ogni membro.
-- Il QR personale del membro contiene solo il codice casuale del ticket; il documento è leggibile solo dal proprietario e dall’admin.
-- `redeemTicket` verifica codice, evento e stato dentro una transazione Firestore. Il primo scan porta il ticket da `issued` a `used`; scansioni successive vengono rifiutate.
-- Le regole Firestore negano scritture client a eventi e ticket. La generazione e la convalida avvengono lato server.
-
-Lo scanner del browser richiede HTTPS e il permesso fotocamera. Per dispositivi che non supportano la scansione diretta, l’admin può inserire manualmente il codice riportato dal ticket.
+Importa il repository in Vercel: `vercel.json` imposta già build Vite, cartella `dist` e fallback SPA (serve per `/profilo` e `/control-room`). Non servono variabili d'ambiente. Lo scanner richiede HTTPS, che Vercel fornisce.

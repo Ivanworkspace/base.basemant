@@ -3,13 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
+    "dev:emu": "VITE_USE_EMULATORS=true vite",
+    "emulators": "npx firebase-tools emulators:start --only auth,firestore",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy:rules": "npx firebase-tools deploy --only firestore:rules,storage",
-    "deploy:functions": "npx firebase-tools deploy --only functions"
+    "deploy:rules": "npx firebase-tools deploy --only firestore"
   },
   "dependencies": {
     "firebase": "^13.1.0",

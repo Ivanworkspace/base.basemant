@@ -34,7 +34,7 @@ npx firebase-tools deploy --only hosting
 
 ## Account admin iniziale
 
-L’email admin richiesta è `base@admin.com`. La password non è salvata nel frontend o nei file del progetto. Per creare/aggiornare l’account e assegnare il custom claim admin, genera una chiave di servizio Firebase per il progetto `codebasemant`, conservala fuori dal repository, poi avvia lo script da `functions/`:
+L’accesso al pannello è sulla rotta non linkata `/admin` (per esempio `https://tuo-dominio.vercel.app/admin`). Accedi con l’account Firebase `base@admin.com`: il client, le Cloud Functions e le regole riportate in `firestore.rules` e `storage.rules` riconoscono questa email oppure il custom claim `admin: true`. La password non è salvata nel frontend o nei file del progetto. Per assegnare anche il custom claim all’account già creato, genera una chiave di servizio Firebase per il progetto `codebasemant`, conservala fuori dal repository, poi avvia lo script da `functions/`:
 
 ```sh
 GOOGLE_APPLICATION_CREDENTIALS="/percorso/privato/service-account.json" \

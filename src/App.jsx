@@ -17,15 +17,23 @@ const sampleEvents = [
 ];
 
 function useLocationView() {
-  const [view, setView] = useState(() => window.location.hash.replace('#', '') || 'home');
+  const resolveView = () => {
+    const path = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (path === '/admin' || path === '/admin/') return 'admin';
+    if (path === '/profile' || path === '/profile/') return 'profile';
+    return window.location.hash.replace('#', '') || 'home';
+  };
+  const [view, setView] = useState(resolveView);
   useEffect(() => {
-    const sync = () => setView(window.location.hash.replace('#', '') || 'home');
+    const sync = () => setView(resolveView());
     window.addEventListener('hashchange', sync);
-    return () => window.removeEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
   }, []);
   const go = useCallback((next) => {
-    if (window.location.hash === `#${next}`) setView(next);
-    else window.location.hash = next;
+    const route = next === 'admin' ? '/admin' : next === 'profile' ? '/profile' : next === 'home' ? '/' : `/#${next}`;
+    if (`${window.location.pathname}${window.location.hash}` !== route) window.history.pushState({}, '', route);
+    setView(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
   return [view, go];
@@ -109,7 +117,7 @@ function Poster({ event, className = '', onClick }) {
   </article>;
 }
 
-function Landing({ onJoin, onLogin, onStaff, events }) {
+function Landing({ onJoin, onLogin, events }) {
   const event = events[0] || sampleEvents[0];
   const [menuOpen, setMenuOpen] = useState(false);
   return <main className="landing">
@@ -152,7 +160,7 @@ function Landing({ onJoin, onLogin, onStaff, events }) {
       <div className="event-feature"><Poster event={event} className="event-poster" /><div className="event-details"><span className="eyebrow">{event?.dateLabel || 'PRESTO'}</span><h3>{event?.title || 'THE FIRST AT BASE'}</h3><p>{event?.description || 'Una notte. Una nuova base. Il tuo posto ti aspetta.'}</p><div className="event-meta"><span><CalendarDays size={16} /> {event?.dateLabel || 'PROSSIMAMENTE'}</span><span><Clock3 size={16} /> {event?.timeLabel || '23:00 — LATE'}</span><span><MapPin size={16} /> {event?.venue || 'Cava de’ Tirreni'}</span></div><Button onClick={onJoin}>PRENDI IL TUO POSTO <ArrowRight size={17} /></Button><span className="event-availability"><span className="live-pulse" /> ACCESSO RISERVATO AI MEMBRI</span></div></div>
     </section>
     <section className="join-strip"><div className="join-strip-inner"><span className="eyebrow">LA COMMUNITY TI ASPETTA</span><h2>FATTI TROVARE<br /><em>DENTRO.</em></h2><Button variant="light" onClick={onJoin}>DIVENTA MEMBRO <ArrowRight size={17} /></Button><span className="strip-star">✳</span></div></section>
-    <footer className="site-footer"><Brand onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} /><span>UN POSTO PER SENTIRSI ALTROVE.</span><a href="https://instagram.com/base.basement/" target="_blank" rel="noreferrer"><Instagram size={17} /> @BASE.BASEMENT</a><button onClick={onStaff}>ACCESSO STAFF <ArrowUpRight size={13} /></button><small>© BASE BASEMENT 2026</small></footer>
+    <footer className="site-footer"><Brand onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} /><span>UN POSTO PER SENTIRSI ALTROVE.</span><a href="https://instagram.com/base.basement/" target="_blank" rel="noreferrer"><Instagram size={17} /> @BASE.BASEMENT</a><small>© BASE BASEMENT 2026</small></footer>
   </main>;
 }
 
@@ -264,7 +272,7 @@ export default function App() {
     if (!current) { setLoading(false); return; }
     try {
       const [tokenResult, profileSnap] = await Promise.all([current.getIdTokenResult(true), getDoc(doc(db, 'profiles', current.uid))]);
-      const admin = tokenResult.claims.admin === true;
+      const admin = tokenResult.claims.admin === true || current.email?.toLowerCase() === 'base@admin.com';
       setIsAdmin(admin); setProfile(profileSnap.exists() ? profileSnap.data() : null);
       if (admin) go('admin'); else go('profile');
     } catch (err) { setFirebaseIssue(err.message); }
@@ -306,13 +314,18 @@ export default function App() {
   const refreshAdmin = useCallback(async () => { if (user) await user.getIdToken(true); }, [user]);
   const logout = async () => { await signOut(auth); go('home'); };
   const openAuth = (mode = 'signup') => { setAuthMode(mode); setAuthOpen(true); };
-  const onAuthDone = async (current) => { setAuthOpen(false); const token = await current.getIdTokenResult(true); go(token.claims.admin ? 'admin' : 'profile'); };
+  const onAuthDone = async (current) => {
+    setAuthOpen(false);
+    const token = await current.getIdTokenResult(true);
+    const admin = token.claims.admin === true || current.email?.toLowerCase() === 'base@admin.com';
+    go(admin ? 'admin' : 'profile');
+  };
   const sortedEvents = useMemo(() => events.length ? events : eventsRef.current, [events]);
 
   return <>
     {view === 'profile' && user && !loading ? <MemberArea user={user} profile={profile} tickets={tickets} go={go} onLogout={logout} /> : null}
     {view === 'admin' && user && isAdmin && !loading ? <AdminArea user={user} profiles={profiles} events={sortedEvents} go={go} onLogout={logout} onRefresh={refreshAdmin} /> : null}
-    {(!user || view === 'home' || loading) && <Landing events={sortedEvents} onJoin={() => openAuth('signup')} onLogin={() => openAuth('login')} onStaff={() => { openAuth('login'); }} />}
+    {(!user || view === 'home' || loading) && <Landing events={sortedEvents} onJoin={() => openAuth('signup')} onLogin={() => openAuth('login')} />}
     {loading && user && <div className="loading-screen"><div className="loading-cube">B</div><span>ENTRIAMO SOTTO.</span></div>}
     {firebaseIssue && !authOpen && <div className="firebase-status" role="status"><span className="live-pulse" /> COLLEGAMENTO FIREBASE DA COMPLETARE <button onClick={() => setFirebaseIssue('')} aria-label="Chiudi"><X size={13} /></button></div>}
     {authOpen && <AuthModal mode={authMode} setMode={setAuthMode} onClose={() => setAuthOpen(false)} onDone={onAuthDone} />}

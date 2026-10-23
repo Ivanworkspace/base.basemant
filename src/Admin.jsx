@@ -386,19 +386,36 @@ function ScannerView({ events, tickets, now }) {
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [manual, setManual] = useState('');
+  const [overlay, setOverlay] = useState(null); // esito mostrato sopra la fotocamera
   const busy = useRef(false);
   const last = useRef({ text: '', at: 0 });
+  const scannerRef = useRef(null);
+  const resumeTimer = useRef(0);
   const context = useRef({ tickets, selectedEventId });
   context.current = { tickets, selectedEventId };
 
   useEffect(() => { if (selectedEventId && !liveEvents.some((e) => e.id === selectedEventId)) setSelectedEventId(''); }, [liveEvents, selectedEventId]);
 
-  const check = useCallback(async (raw) => {
+  // Dopo ogni lettura lo scanner resta in pausa finché l'esito non è stato visto.
+  const resume = useCallback(() => {
+    window.clearTimeout(resumeTimer.current);
+    setOverlay(null);
+    last.current = { ...last.current, at: Date.now() };
+    try { scannerRef.current?.resume(); } catch { /* già attivo */ }
+    busy.current = false;
+  }, []);
+
+  const check = useCallback(async (raw, fromCamera) => {
     if (busy.current) return;
     const nowMs = Date.now();
-    if (raw === last.current.text && nowMs - last.current.at < 4000) return;
+    // Lo stesso QR ancora inquadrato dopo la ripresa viene ignorato per qualche secondo.
+    if (fromCamera && raw === last.current.text && nowMs - last.current.at < 6000) return;
     last.current = { text: raw, at: nowMs };
     busy.current = true;
+    if (fromCamera) {
+      try { scannerRef.current?.pause(true); } catch { /* opzionale */ }
+      setOverlay({ tone: 'checking', title: 'VERIFICA IN CORSO…' });
+    }
     let outcome;
     const parsed = parseScan(raw);
     if (!parsed) outcome = { tone: 'error', title: 'QR NON RICONOSCIUTO', detail: 'Questo non è un QR di BASE.' };
@@ -410,8 +427,14 @@ function ScannerView({ events, tickets, now }) {
     feedback(outcome.tone);
     setResult(outcome);
     setHistory((h) => [outcome, ...h].slice(0, 12));
-    window.setTimeout(() => { busy.current = false; }, 1200);
-  }, []);
+    if (fromCamera) {
+      const wait = outcome.tone === 'ok' ? 3500 : 6000;
+      setOverlay({ ...outcome, wait });
+      resumeTimer.current = window.setTimeout(resume, wait);
+    } else {
+      busy.current = false;
+    }
+  }, [resume]);
 
   useEffect(() => {
     if (!cameraOn) return undefined;
@@ -420,11 +443,16 @@ function ScannerView({ events, tickets, now }) {
     import('html5-qrcode').then(({ Html5Qrcode }) => {
       if (disposed) return;
       scanner = new Html5Qrcode('base-scanner', { verbose: false });
-      scanner.start({ facingMode: 'environment' }, { fps: 12, qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.72); return { width: s, height: s }; } }, (text) => check(text), () => {})
+      scannerRef.current = scanner;
+      scanner.start({ facingMode: 'environment' }, { fps: 8, qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.72); return { width: s, height: s }; } }, (text) => check(text, true), () => {})
         .catch(() => { if (!disposed) { setCameraError('Fotocamera non disponibile. Consenti l’accesso alla fotocamera (serve HTTPS) oppure inserisci il codice a mano.'); setCameraOn(false); } });
     }).catch(() => setCameraError('Non riesco a caricare lo scanner. Ricarica la pagina.'));
     return () => {
       disposed = true;
+      scannerRef.current = null;
+      window.clearTimeout(resumeTimer.current);
+      setOverlay(null);
+      busy.current = false;
       if (scanner?.isScanning) scanner.stop().then(() => scanner.clear()).catch(() => {});
     };
   }, [cameraOn, check]);
@@ -442,10 +470,20 @@ function ScannerView({ events, tickets, now }) {
     <div className="scanner-layout">
       <div className="scanner-box">
         <div className="scanner-topline"><span><ScanLine size={16} /> SCANNER BASE</span><span className="scanner-live">{cameraOn ? <><i /> LIVE</> : 'SPENTO'}</span></div>
-        <div id="base-scanner" className="qr-scanner adm-scanner">{!cameraOn && <button className="adm-camera-start" onClick={() => setCameraOn(true)}><ScanLine size={30} /><span>AVVIA SCANNER</span></button>}</div>
+        <div className="adm-scanner-wrap">
+          <div id="base-scanner" className="qr-scanner adm-scanner" />
+          {!cameraOn && <button className="adm-camera-start" onClick={() => setCameraOn(true)}><ScanLine size={30} /><span>AVVIA SCANNER</span></button>}
+          {cameraOn && overlay && <button type="button" className={`adm-scan-overlay adm-overlay-${overlay.tone}`} onClick={overlay.tone === 'checking' ? undefined : resume}>
+            <span className="adm-overlay-icon">{overlay.tone === 'ok' ? <CheckCircle2 size={54} /> : overlay.tone === 'warn' ? <AlertTriangle size={54} /> : overlay.tone === 'checking' ? <ScanLine size={50} /> : <X size={54} />}</span>
+            <strong>{overlay.title}</strong>
+            {overlay.name && <span className="adm-overlay-name">{overlay.name}</span>}
+            {overlay.detail && <span className="adm-overlay-detail">{overlay.detail}</span>}
+            {overlay.wait && <><span className="adm-overlay-next">TOCCA PER IL PROSSIMO</span><i className="adm-overlay-bar" style={{ animationDuration: `${overlay.wait}ms` }} /></>}
+          </button>}
+        </div>
         {cameraOn && <button className="adm-link-button adm-light" onClick={() => setCameraOn(false)}><X size={13} /> FERMA FOTOCAMERA</button>}
         {cameraError && <p className="form-error">{cameraError}</p>}
-        <div className="scanner-manual"><span>OPPURE INSERISCI IL CODICE (NO. SOTTO IL QR)</span><form onSubmit={(e) => { e.preventDefault(); last.current = { text: '', at: 0 }; check(manual); setManual(''); }}><input value={manual} onChange={(e) => setManual(e.target.value.toUpperCase())} placeholder="es. 7KQ2M9XA" maxLength={12} /><button aria-label="Verifica codice"><ArrowRight size={17} /></button></form></div>
+        <div className="scanner-manual"><span>OPPURE INSERISCI IL CODICE (NO. SOTTO IL QR)</span><form onSubmit={(e) => { e.preventDefault(); last.current = { text: '', at: 0 }; check(manual, false); setManual(''); }}><input value={manual} onChange={(e) => setManual(e.target.value.toUpperCase())} placeholder="es. 7KQ2M9XA" maxLength={12} /><button aria-label="Verifica codice"><ArrowRight size={17} /></button></form></div>
       </div>
       <div className={`scan-result adm-scan-${result?.tone || 'idle'}`}>
         <div className="scan-result-icon">{icon}</div>
